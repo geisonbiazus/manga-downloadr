@@ -134,10 +134,12 @@ module MangaDownloadr
       folders = Dir[manga_root_folder + "/*/"].sort_by { |element| ary = element.split(" ").last.to_i }
 
       volumes = {}
-      volume_number = 1
+      volume_number = 0
 
       folders.each_with_index do |folder, index|
-        volume_number += 1 if index % chapters_per_volume == 0
+#	p folder, index, self.chapters_per_volume
+        volume_number += 1 if index % 5 == 0# chapters_per_volume == 0
+p volume_number
         volumes[volume_number] ||= []
         volumes[volume_number] << folder
       end
@@ -167,6 +169,7 @@ module MangaDownloadr
       # end
 
       # concatenating PDF files (250 pages per volume)
+=begin
       chapter_number = 0
       while !download_links.empty?
         chapter_number += 1
@@ -183,6 +186,7 @@ module MangaDownloadr
         end
         print '.'
       end
+=end
 
       current_state :ebooks
     end
