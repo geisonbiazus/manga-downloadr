@@ -21,6 +21,11 @@ option_parser = OptionParser.new do |opts|
     options[:directory] = d
   end
 
+  opts.on('-v VOLUME', '--volume VOLUME',
+    'volume to be downloaded (based on pages per volume)') do |v|
+    options[:volume] = v
+  end
+
   opts.on("-h", "--help", "Show this message") do
     puts opts
     exit
@@ -36,7 +41,7 @@ rescue OptionParser::ParseError
 end
 
 require 'manga-downloadr'
-generator = MangaDownloadr::Workflow.create(options[:url], options[:name], options[:directory])
+generator = MangaDownloadr::Workflow.create(options[:url], options[:name], options[:directory], options)
 unless generator.state?(:chapter_urls)
   puts "Massive parallel scanning of all chapters "
   generator.fetch_chapter_urls!

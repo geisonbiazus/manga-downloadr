@@ -16,7 +16,7 @@ module MangaDownloadr
   class Workflow
     attr_accessor :manga_root_url, :manga_root, :manga_root_folder, :manga_name, :hydra_concurrency
     attr_accessor :chapter_list, :chapter_pages, :chapter_images, :download_links, :chapter_pages_count
-    attr_accessor :manga_title, :pages_per_volume, :page_size
+    attr_accessor :manga_title, :chapters_per_volume, :page_size
     attr_accessor :processing_state
 
     def initialize(root_url = nil, manga_name = nil, manga_root = nil, options = {})
@@ -29,12 +29,12 @@ module MangaDownloadr
       self.manga_root_folder = File.join(manga_root, manga_name)
       self.manga_name        = manga_name
 
-      self.hydra_concurrency = options[:hydra_concurrency] || 100
+      self.hydra_concurrency = options[:hydra_concurrency] || 1
 
       self.chapter_pages    = {}
       self.chapter_images   = {}
 
-      self.pages_per_volume = options[:pages_per_volume] || 250
+      self.chapters_per_volume = options[:chapters_per_volume] || 5
       self.page_size        = options[:page_size] || [600, 800]
 
       self.processing_state = []
@@ -132,16 +132,46 @@ module MangaDownloadr
 
     def compile_ebooks!
       folders = Dir[manga_root_folder + "/*/"].sort_by { |element| ary = element.split(" ").last.to_i }
-      self.download_links = folders.inject([]) do |list, folder|
-        list += Dir[folder + "*.*"].sort_by { |element| ary = element.split(" ").last.to_i }
+
+      volumes = {}
+      volume_number = 1
+
+      folders.each_with_index do |folder, index|
+        volume_number += 1 if index % chapters_per_volume == 0
+        volumes[volume_number] ||= []
+        volumes[volume_number] << folder
       end
+
+      volumes.each do |chapter_number, folders|
+        pdf_file = File.join(manga_root_folder, "#{manga_title} #{chapter_number}.pdf")
+
+        list = folders.inject([]) do |files, folder|
+          files += Dir[folder + "*.*"].sort_by { |element| ary = element.split(" ").last.to_i }
+        end
+
+        Prawn::Document.generate(pdf_file, page_size: page_size) do |pdf|
+          list.each do |image_file|
+            begin
+              pdf.image image_file, position: :center, vposition: :center
+            rescue => e
+              puts "Error in #{image_file} - #{e}"
+            end
+          end
+        end
+        print '.'
+      end
+
+      # folders = Dir[manga_root_folder + "/*/"].sort_by { |element| ary = element.split(" ").last.to_i }
+      # self.download_links = folders.inject([]) do |list, folder|
+      #   list += Dir[folder + "*.*"].sort_by { |element| ary = element.split(" ").last.to_i }
+      # end
 
       # concatenating PDF files (250 pages per volume)
       chapter_number = 0
       while !download_links.empty?
         chapter_number += 1
         pdf_file = File.join(manga_root_folder, "#{manga_title} #{chapter_number}.pdf")
-        list = download_links.slice!(0..pages_per_volume)
+        list = download_links.slice!(0..chapters_per_volume)
         Prawn::Document.generate(pdf_file, page_size: page_size) do |pdf|
           list.each do |image_file|
             begin
