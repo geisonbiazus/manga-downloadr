@@ -24,20 +24,21 @@ module MangaDownloadr
       manga_root or raise ArgumentError.new("Manga root folder is required")
       manga_name or raise ArgumentError.new("Manga slug is required")
 
-      self.manga_root_url    = root_url
-      self.manga_root        = manga_root
-      self.manga_root_folder = File.join(manga_root, manga_name)
-      self.manga_name        = manga_name
+      self.manga_root_url      = root_url
+      self.manga_root          = manga_root
+      self.manga_root_folder   = File.join(manga_root, manga_name)
+      self.manga_name          = manga_name
+      self.volume              = options[:volume]
 
-      self.hydra_concurrency = options[:hydra_concurrency] || 1
+      self.hydra_concurrency   = options[:hydra_concurrency] || 1
 
-      self.chapter_pages    = {}
-      self.chapter_images   = {}
+      self.chapter_pages       = {}
+      self.chapter_images      = {}
 
       self.chapters_per_volume = options[:chapters_per_volume] || 5
-      self.page_size        = options[:page_size] || [600, 800]
+      self.page_size           = options[:page_size] || [600, 800]
 
-      self.processing_state = []
+      self.processing_state    = []
     end
 
     def fetch_chapter_urls!
@@ -45,6 +46,10 @@ module MangaDownloadr
 
       self.chapter_list = doc.css("#listing a").map { |l| l['href']}
       self.manga_title  = doc.css("#mangaproperties h1").first.text
+
+      if volume
+        self.chapter_list = chapter_list[(volume - 1) * chapters_per_volume..volume * chapters_per_volume - 1]
+      end
 
       current_state :chapter_urls
     end
@@ -134,12 +139,11 @@ module MangaDownloadr
       folders = Dir[manga_root_folder + "/*/"].sort_by { |element| ary = element.split(" ").last.to_i }
 
       volumes = {}
-      volume_number = 0
+      volume_number = (volume || 1) - 1
+      chapters_per_volume = 5
 
       folders.each_with_index do |folder, index|
-#	p folder, index, self.chapters_per_volume
-        volume_number += 1 if index % 5 == 0# chapters_per_volume == 0
-p volume_number
+        volume_number += 1 if index % chapters_per_volume == 0
         volumes[volume_number] ||= []
         volumes[volume_number] << folder
       end
@@ -162,31 +166,6 @@ p volume_number
         end
         print '.'
       end
-
-      # folders = Dir[manga_root_folder + "/*/"].sort_by { |element| ary = element.split(" ").last.to_i }
-      # self.download_links = folders.inject([]) do |list, folder|
-      #   list += Dir[folder + "*.*"].sort_by { |element| ary = element.split(" ").last.to_i }
-      # end
-
-      # concatenating PDF files (250 pages per volume)
-=begin
-      chapter_number = 0
-      while !download_links.empty?
-        chapter_number += 1
-        pdf_file = File.join(manga_root_folder, "#{manga_title} #{chapter_number}.pdf")
-        list = download_links.slice!(0..chapters_per_volume)
-        Prawn::Document.generate(pdf_file, page_size: page_size) do |pdf|
-          list.each do |image_file|
-            begin
-              pdf.image image_file, position: :center, vposition: :center
-            rescue => e
-              puts "Error in #{image_file} - #{e}"
-            end
-          end
-        end
-        print '.'
-      end
-=end
 
       current_state :ebooks
     end
